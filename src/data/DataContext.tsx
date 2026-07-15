@@ -1,4 +1,5 @@
-import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import type { DataRepository } from './repositories/DataRepository';
 import { DemoRepository } from './repositories/DemoRepository';
 // import { SupabaseRepository } from './repositories/SupabaseRepository';
