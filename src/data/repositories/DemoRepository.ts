@@ -61,6 +61,25 @@ export class DemoRepository implements DataRepository {
     return this.profiles.find((p) => p.id === id) || null;
   }
 
+  async addProfile(profile: Omit<HealthProfile, 'id' | 'htId' | 'createdAt' | 'updatedAt'>): Promise<HealthProfile> {
+    const newProfile: HealthProfile = {
+      ...profile,
+      id: Math.random().toString(36).substr(2, 9),
+      htId: `HT-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    this.profiles.push(newProfile);
+    return newProfile;
+  }
+
+  async deleteProfile(id: string): Promise<void> {
+    const idx = this.profiles.findIndex(p => p.id === id);
+    if (idx > -1) {
+      this.profiles.splice(idx, 1);
+    }
+  }
+
   async getAllergiesByProfile(profileId: string): Promise<Allergy[]> {
     return this.allergies.filter((a) => a.profileId === profileId);
   }
@@ -193,6 +212,13 @@ export class DemoRepository implements DataRepository {
     if (idx === -1) throw new Error('CareLoop not found');
     this.careLoops[idx] = { ...this.careLoops[idx], ...updates };
     return this.careLoops[idx];
+  }
+
+  async deleteCareLoop(id: string): Promise<void> {
+    const idx = this.careLoops.findIndex(l => l.id === id);
+    if (idx > -1) {
+      this.careLoops.splice(idx, 1);
+    }
   }
 
   async getCareTasksByLoop(careLoopId: string): Promise<CareTask[]> {

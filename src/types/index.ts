@@ -85,6 +85,7 @@ export interface MedicalRecord {
   fileSize?: number;
   notes?: string;
   createdBy: string;
+  metadata?: Record<string, unknown>;
   createdAt: string;
 }
 

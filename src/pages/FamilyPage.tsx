@@ -5,23 +5,26 @@ import { useData } from '../data/DataContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import type { HealthProfile } from '../types';
+import { AddFamilyMemberModal } from '../components/forms/AddFamilyMemberModal';
 
 export function FamilyPage() {
   const data = useData();
   const [profiles, setProfiles] = useState<HealthProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const load = async () => {
+    try {
+      const profs = await data.getProfiles();
+      setProfiles(profs);
+    } catch (err) {
+      console.error('Failed to load profiles:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function load() {
-      try {
-        const profs = await data.getProfiles();
-        setProfiles(profs);
-      } catch (err) {
-        console.error('Failed to load profiles:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
     load();
   }, [data]);
 
@@ -34,7 +37,7 @@ export function FamilyPage() {
   }
 
   return (
-    <div className="animate-fade-in max-w-5xl mx-auto">
+    <div className="animate-fade-in max-w-5xl mx-auto pb-24">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-heading font-bold text-navy-800 flex items-center gap-2">
@@ -43,13 +46,15 @@ export function FamilyPage() {
           </h1>
           <p className="text-navy-500 mt-1">Manage health records for your loved ones.</p>
         </div>
-        <Button leftIcon={<Plus className="w-4 h-4" />}>Add Member</Button>
+        <Button leftIcon={<Plus className="w-4 h-4" />} onClick={() => setIsAddModalOpen(true)}>
+          Add Member
+        </Button>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {profiles.map((profile) => (
           <Link key={profile.id} to={`/app/family/${profile.id}`}>
-            <Card hover className="h-full flex flex-col group">
+            <Card hover className="h-full flex flex-col group border-ivory-200">
               <div className="flex items-start gap-4 mb-4">
                 <div 
                   className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-heading font-bold text-xl flex-shrink-0 shadow-sm"
@@ -63,8 +68,12 @@ export function FamilyPage() {
                   </h3>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-sm text-navy-500 capitalize">{profile.relationship}</span>
-                    <span className="w-1 h-1 rounded-full bg-ivory-300" />
-                    <span className="text-sm text-navy-500">{profile.bloodGroup || 'No Blood Group'}</span>
+                    {profile.bloodGroup && (
+                      <>
+                        <span className="w-1 h-1 rounded-full bg-ivory-300" />
+                        <span className="text-sm text-navy-500">{profile.bloodGroup}</span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -86,14 +95,22 @@ export function FamilyPage() {
           </Link>
         ))}
 
-        {/* Empty state / add new card */}
-        <button className="h-full min-h-[200px] border-2 border-dashed border-ivory-300 rounded-2xl flex flex-col items-center justify-center text-navy-400 hover:text-sage-600 hover:border-sage-300 hover:bg-sage-50/50 transition-all group">
+        <button 
+          onClick={() => setIsAddModalOpen(true)}
+          className="h-full min-h-[160px] border-2 border-dashed border-ivory-300 rounded-3xl flex flex-col items-center justify-center text-navy-400 hover:text-sage-600 hover:border-sage-300 hover:bg-sage-50/50 transition-all group"
+        >
           <div className="w-12 h-12 rounded-full bg-ivory-100 group-hover:bg-sage-100 flex items-center justify-center mb-3 transition-colors">
             <Plus className="w-6 h-6" />
           </div>
           <span className="font-medium font-heading">Add Family Member</span>
         </button>
       </div>
+
+      <AddFamilyMemberModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+        onSuccess={load}
+      />
     </div>
   );
 }

@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useData } from '../data/DataContext';
 import { SymptomCheckin } from '../types';
-import { Activity, Plus, AlertCircle, HeartPulse, ListPlus, Flame, Smile, Frown, Meh, Pill } from 'lucide-react';
+import { Activity, Plus, AlertCircle, HeartPulse, ListPlus, Flame, Smile, Frown, Meh, Trash2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format, parseISO } from 'date-fns';
+import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
+import toast from 'react-hot-toast';
 
 export function SymptomsPage() {
-  const { getSymptomsByProfile, getProfiles, addSymptom } = useData();
+  const { getSymptomsByProfile, getProfiles, addSymptom, deleteSymptom } = useData();
   const [symptoms, setSymptoms] = useState<SymptomCheckin[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
 
@@ -15,6 +18,10 @@ export function SymptomsPage() {
   const [newSeverity, setNewSeverity] = useState<number>(5);
   const [newNotes, setNewNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Delete Modal State
+  const [deleteModalState, setDeleteModalState] = useState<{isOpen: boolean, id: string | null}>({isOpen: false, id: null});
+  const [isDeleting, setIsDeleting] = useState(false);
   
   useEffect(() => {
     getProfiles().then(profiles => {
@@ -31,14 +38,21 @@ export function SymptomsPage() {
 
   const loadSymptoms = async () => {
     if (activeProfileId) {
-      const data = await getSymptomsByProfile(activeProfileId);
-      setSymptoms(data.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()));
+      try {
+        const data = await getSymptomsByProfile(activeProfileId);
+        setSymptoms(data.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()));
+      } catch (err) {
+        toast.error('Failed to load symptoms');
+      }
     }
   };
 
   const handleAddSymptom = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeProfileId || !newSymptomName.trim()) return;
+    if (!activeProfileId || !newSymptomName.trim()) {
+      toast.error('Please enter a symptom name');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -50,6 +64,8 @@ export function SymptomsPage() {
         recordedAt: new Date().toISOString()
       });
       
+      toast.success('Symptom logged successfully');
+      
       // Reset form
       setNewSymptomName('');
       setNewSeverity(5);
@@ -57,8 +73,25 @@ export function SymptomsPage() {
       
       // Reload
       await loadSymptoms();
+    } catch (err) {
+      toast.error('Failed to log symptom');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteSymptom = async () => {
+    if (!deleteModalState.id) return;
+    setIsDeleting(true);
+    try {
+      await deleteSymptom(deleteModalState.id);
+      setSymptoms(prev => prev.filter(s => s.id !== deleteModalState.id));
+      toast.success('Symptom deleted successfully');
+      setDeleteModalState({ isOpen: false, id: null });
+    } catch (err) {
+      toast.error('Failed to delete symptom');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -92,7 +125,7 @@ export function SymptomsPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-10 pb-24">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-10 pb-24 animate-fade-in">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-heading font-bold text-navy-900">Symptoms Tracker</h1>
@@ -112,7 +145,7 @@ export function SymptomsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-navy-700 mb-2">What are you feeling?</label>
+                <label className="block text-sm font-medium text-navy-700 mb-2">What are you feeling? *</label>
                 <input 
                   type="text" 
                   value={newSymptomName}
@@ -120,6 +153,7 @@ export function SymptomsPage() {
                   placeholder="e.g., Headache, Nausea, Fatigue..."
                   className="w-full px-4 py-3 rounded-xl border border-ivory-200 focus:outline-none focus:ring-2 focus:ring-sage-500 bg-white"
                   required
+                  disabled={isSubmitting}
                 />
               </div>
               
@@ -130,6 +164,7 @@ export function SymptomsPage() {
                   onChange={e => setNewNotes(e.target.value)}
                   placeholder="Any triggers or extra details..."
                   className="w-full px-4 py-3 rounded-xl border border-ivory-200 focus:outline-none focus:ring-2 focus:ring-sage-500 bg-white resize-none h-24"
+                  disabled={isSubmitting}
                 />
               </div>
             </div>
@@ -143,6 +178,7 @@ export function SymptomsPage() {
                     key={num}
                     type="button"
                     onClick={() => setNewSeverity(num)}
+                    disabled={isSubmitting}
                     className={`
                       w-8 h-10 sm:w-10 sm:h-12 rounded-lg flex items-center justify-center font-medium transition-all
                       ${newSeverity === num 
@@ -204,18 +240,27 @@ export function SymptomsPage() {
             {symptoms.map(symptom => {
               const colorClass = getSeverityColor(symptom.severity);
               return (
-                <div key={symptom.id} className="card p-5 bg-white border border-ivory-200 rounded-2xl hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-start mb-3">
+                <div key={symptom.id} className="card p-5 bg-white border border-ivory-200 rounded-2xl hover:shadow-md transition-shadow relative group">
+                  <div className="flex justify-between items-start mb-3 pr-8">
                     <h3 className="font-heading font-semibold text-lg text-navy-900 capitalize">{symptom.symptomName}</h3>
                     <div className={`px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${colorClass}`}>
                       {getSeverityIcon(symptom.severity)}
                       {symptom.severity} / 10
                     </div>
                   </div>
+                  
+                  <button 
+                    className="absolute top-4 right-4 p-1.5 text-navy-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                    onClick={() => setDeleteModalState({ isOpen: true, id: symptom.id })}
+                    aria-label="Delete symptom"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+
                   {symptom.notes && (
                     <p className="text-sm text-navy-600 mb-4 line-clamp-2">{symptom.notes}</p>
                   )}
-                  <p className="text-xs text-navy-400 font-medium">
+                  <p className="text-xs text-navy-400 font-medium mt-auto pt-2">
                     {format(parseISO(symptom.recordedAt), 'MMM d, yyyy • h:mm a')}
                   </p>
                 </div>
@@ -226,12 +271,22 @@ export function SymptomsPage() {
       )}
 
       {symptoms.length === 0 && (
-        <div className="card p-12 text-center text-navy-500 border-dashed border-2 border-ivory-200">
-          <HeartPulse className="w-12 h-12 mx-auto mb-4 text-navy-300 opacity-50" />
-          <p className="text-lg font-heading text-navy-700">No symptoms logged yet.</p>
-          <p className="text-sm mt-1">Use the form above to start tracking how you feel.</p>
-        </div>
+        <EmptyState 
+          icon={<HeartPulse className="w-8 h-8" />}
+          title="No symptoms logged yet" 
+          description="Use the form above to start tracking how you feel over time." 
+        />
       )}
+
+      <ConfirmModal
+        isOpen={deleteModalState.isOpen}
+        onClose={() => setDeleteModalState({ isOpen: false, id: null })}
+        onConfirm={handleDeleteSymptom}
+        title="Delete Symptom Log"
+        message="Are you sure you want to delete this symptom log? This action cannot be undone."
+        confirmText="Delete"
+        isProcessing={isDeleting}
+      />
     </div>
   );
 }
@@ -259,7 +314,7 @@ function SymptomTrendCard({ name, data }: { name: string, data: SymptomCheckin[]
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
-                <linearGradient id={`color-symptom-${name}`} x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id={`color-symptom-${name.replace(/\s+/g, '-')}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.2}/>
                   <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
                 </linearGradient>
@@ -276,7 +331,7 @@ function SymptomTrendCard({ name, data }: { name: string, data: SymptomCheckin[]
                 dataKey="severity" 
                 stroke="#8B5CF6" 
                 strokeWidth={3} 
-                fill={`url(#color-symptom-${name})`} 
+                fill={`url(#color-symptom-${name.replace(/\s+/g, '-')})`} 
                 activeDot={{ r: 6, strokeWidth: 0, fill: '#8B5CF6' }} 
               />
             </AreaChart>

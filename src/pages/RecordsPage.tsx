@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useData } from '../data/DataContext';
 import { MedicalRecord } from '../types';
-import { Search, Plus, FileText, FileImage, FileBarChart2, FileSymlink, Calendar, User, Building2, MoreVertical, UploadCloud } from 'lucide-react';
+import { Search, Plus, FileText, FileImage, FileBarChart2, FileSymlink, Calendar, User, Building2, MoreVertical, UploadCloud, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { UploadRecordModal } from '../components/forms/UploadRecordModal';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { EmptyState } from '../components/ui/EmptyState';
+import toast from 'react-hot-toast';
 
 const CATEGORY_COLORS: Record<string, string> = {
   'prescription': 'bg-sage-100 text-sage-700',
@@ -23,11 +27,15 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
 };
 
 export function RecordsPage() {
-  const { getRecordsByProfile, getProfiles } = useData();
+  const { getRecordsByProfile, getProfiles, deleteRecord } = useData();
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [deleteModalState, setDeleteModalState] = useState<{isOpen: boolean, id: string | null}>({isOpen: false, id: null});
+  const [isDeleting, setIsDeleting] = useState(false);
   
   useEffect(() => {
     getProfiles().then(profiles => {
@@ -36,11 +44,15 @@ export function RecordsPage() {
     });
   }, [getProfiles]);
 
-  useEffect(() => {
+  const loadData = () => {
     if (activeProfileId) {
       getRecordsByProfile(activeProfileId).then(setRecords);
     }
-  }, [activeProfileId, getRecordsByProfile]);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [activeProfileId]);
 
   const filteredRecords = useMemo(() => {
     return records
@@ -49,57 +61,107 @@ export function RecordsPage() {
       .sort((a, b) => new Date(b.recordDate).getTime() - new Date(a.recordDate).getTime());
   }, [records, filterCategory, searchQuery]);
 
+  const handleDelete = async () => {
+    if (!deleteModalState.id) return;
+    setIsDeleting(true);
+    try {
+      await deleteRecord(deleteModalState.id);
+      setRecords(prev => prev.filter(r => r.id !== deleteModalState.id));
+      toast.success('Record deleted successfully');
+      setDeleteModalState({ isOpen: false, id: null });
+    } catch (e) {
+      toast.error('Failed to delete record');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 pb-24">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 pb-24 animate-fade-in">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-heading font-bold text-navy-800">Medical Records</h1>
           <p className="text-navy-600 mt-1">Your organized health history</p>
         </div>
-        <button className="btn-primary w-full md:w-auto shadow-md">
+        <button 
+          className="btn-primary w-full md:w-auto shadow-md"
+          onClick={() => setIsUploadModalOpen(true)}
+        >
           <UploadCloud className="w-5 h-5 mr-2" />
           Upload Record
         </button>
       </div>
 
-      {/* Filters and Search */}
-      <div className="flex flex-col md:flex-row gap-4 items-center">
-        <div className="relative w-full md:max-w-md">
-          <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-navy-400" />
-          <input 
-            type="text" 
-            placeholder="Search records, doctors, or notes..." 
-            className="input-field pl-12"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      {records.length > 0 && (
+        <div className="flex flex-col md:flex-row gap-4 items-center">
+          <div className="relative w-full md:max-w-md">
+            <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-navy-400" />
+            <input 
+              type="text" 
+              placeholder="Search records, doctors, or notes..." 
+              className="input-field pl-12"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto hide-scrollbar">
+            <FilterBadge label="All" active={filterCategory === 'all'} onClick={() => setFilterCategory('all')} />
+            <FilterBadge label="Prescriptions" active={filterCategory === 'prescription'} onClick={() => setFilterCategory('prescription')} />
+            <FilterBadge label="Lab Reports" active={filterCategory === 'lab_report'} onClick={() => setFilterCategory('lab_report')} />
+            <FilterBadge label="Imaging" active={filterCategory === 'imaging'} onClick={() => setFilterCategory('imaging')} />
+          </div>
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto hide-scrollbar">
-          <FilterBadge label="All" active={filterCategory === 'all'} onClick={() => setFilterCategory('all')} />
-          <FilterBadge label="Prescriptions" active={filterCategory === 'prescription'} onClick={() => setFilterCategory('prescription')} />
-          <FilterBadge label="Lab Reports" active={filterCategory === 'lab_report'} onClick={() => setFilterCategory('lab_report')} />
-          <FilterBadge label="Imaging" active={filterCategory === 'imaging'} onClick={() => setFilterCategory('imaging')} />
-        </div>
-      </div>
+      )}
 
-      {/* Grid */}
-      {filteredRecords.length > 0 ? (
+      {records.length === 0 ? (
+        <EmptyState 
+          icon={<UploadCloud className="w-8 h-8" />}
+          title="No medical records" 
+          description="Keep your health history organized. Upload prescriptions, lab reports, and other medical documents." 
+          actionLabel="Upload Record"
+          actionIcon={<UploadCloud className="w-4 h-4" />}
+          onAction={() => setIsUploadModalOpen(true)}
+        />
+      ) : filteredRecords.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredRecords.map(record => (
-            <RecordCard key={record.id} record={record} />
+            <RecordCard 
+              key={record.id} 
+              record={record} 
+              onDelete={() => setDeleteModalState({ isOpen: true, id: record.id })} 
+            />
           ))}
         </div>
       ) : (
         <div className="card p-16 text-center border-dashed border-2 border-ivory-300 bg-transparent flex flex-col items-center justify-center">
           <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
-            <UploadCloud className="w-8 h-8 text-navy-300" />
+            <Search className="w-8 h-8 text-navy-300" />
           </div>
-          <h3 className="text-xl font-heading font-semibold text-navy-700 mb-2">No records found</h3>
+          <h3 className="text-xl font-heading font-semibold text-navy-700 mb-2">No matches found</h3>
           <p className="text-navy-500 max-w-sm">
-            {searchQuery ? 'Try adjusting your search or filters.' : 'Upload your first medical record to keep it safe and accessible.'}
+            Try adjusting your search or filters to find what you're looking for.
           </p>
         </div>
       )}
+
+      {activeProfileId && (
+        <UploadRecordModal 
+          isOpen={isUploadModalOpen} 
+          onClose={() => setIsUploadModalOpen(false)} 
+          profileId={activeProfileId}
+          onSuccess={loadData}
+        />
+      )}
+
+      <ConfirmModal
+        isOpen={deleteModalState.isOpen}
+        onClose={() => setDeleteModalState({ isOpen: false, id: null })}
+        onConfirm={handleDelete}
+        title="Delete Record"
+        message="Are you sure you want to delete this record? This action cannot be undone."
+        confirmText="Delete"
+        isProcessing={isDeleting}
+      />
     </div>
   );
 }
@@ -119,16 +181,12 @@ function FilterBadge({ label, active, onClick }: { label: string, active: boolea
   );
 }
 
-function RecordCard({ record }: { record: MedicalRecord }) {
+function RecordCard({ record, onDelete }: { record: MedicalRecord, onDelete: () => void }) {
   const Icon = CATEGORY_ICONS[record.recordType] || FileText;
   const badgeColor = CATEGORY_COLORS[record.recordType] || CATEGORY_COLORS['other'];
   
-  // Format the record type for display
-  const displayType = record.recordType.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-
   return (
-    <div className="card group hover:shadow-lg transition-all duration-300 p-0 overflow-hidden flex flex-col cursor-pointer border-ivory-200">
-      {/* File Preview Area (Elegant Placeholder) */}
+    <div className="card group hover:shadow-lg transition-all duration-300 p-0 overflow-hidden flex flex-col cursor-pointer border-ivory-200 relative">
       <div className="h-40 bg-gradient-to-br from-ivory-50 to-ivory-100 border-b border-ivory-200 flex items-center justify-center relative overflow-hidden">
         <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(#1E293B 1px, transparent 1px)', backgroundSize: '16px 16px' }}></div>
         <Icon className="w-16 h-16 text-navy-200 group-hover:scale-110 transition-transform duration-500 ease-out" />
@@ -139,14 +197,18 @@ function RecordCard({ record }: { record: MedicalRecord }) {
         </div>
       </div>
       
-      {/* Metadata */}
-      <div className="p-5 flex-1 flex flex-col">
-        <div className="flex justify-between items-start mb-2">
-          <h3 className="font-heading font-semibold text-navy-900 leading-tight line-clamp-2 pr-4">{record.title}</h3>
-          <button className="text-navy-400 hover:text-navy-700 transition-colors p-1 -mr-2 -mt-1 opacity-0 group-hover:opacity-100">
-            <MoreVertical className="w-5 h-5" />
-          </button>
+      <div className="p-5 flex-1 flex flex-col relative">
+        <div className="flex justify-between items-start mb-2 pr-6">
+          <h3 className="font-heading font-semibold text-navy-900 leading-tight line-clamp-2">{record.title}</h3>
         </div>
+        
+        <button 
+          className="absolute top-4 right-4 p-1.5 text-navy-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          title="Delete Record"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
         
         <div className="space-y-2 mt-auto pt-4">
           <div className="flex items-center text-xs text-navy-500">

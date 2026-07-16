@@ -22,6 +22,8 @@ export interface DataRepository {
   // Profiles
   getProfiles(): Promise<HealthProfile[]>;
   getProfileById(id: string): Promise<HealthProfile | null>;
+  addProfile(profile: Omit<HealthProfile, 'id' | 'htId' | 'createdAt' | 'updatedAt'>): Promise<HealthProfile>;
+  deleteProfile(id: string): Promise<void>;
   
   // Allergies
   getAllergiesByProfile(profileId: string): Promise<Allergy[]>;
@@ -63,6 +65,7 @@ export interface DataRepository {
   updateCareTask(taskId: string, updates: Partial<CareTask>): Promise<CareTask>;
   createCareLoop(loop: Omit<CareLoop, 'id' | 'createdAt'>, initialTasks: Omit<CareTask, 'id' | 'careLoopId'>[]): Promise<CareLoop>;
   updateCareLoop(id: string, updates: Partial<CareLoop>): Promise<CareLoop>;
+  deleteCareLoop(id: string): Promise<void>;
   
   // Symptoms
   getSymptomsByProfile(profileId: string): Promise<SymptomCheckin[]>;

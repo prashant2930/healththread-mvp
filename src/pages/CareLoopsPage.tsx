@@ -5,6 +5,8 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
+import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { 
   ActivitySquare,
   Plus, 
@@ -14,10 +16,12 @@ import {
   Pill,
   FileText,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import { formatDate } from '../utils';
 import type { CareLoop, CareTask } from '../types';
+import toast from 'react-hot-toast';
 
 export function CareLoopsPage() {
   const data = useData();
@@ -25,8 +29,13 @@ export function CareLoopsPage() {
   const [loops, setLoops] = useState<CareLoop[]>([]);
   const [tasksByLoop, setTasksByLoop] = useState<Record<string, CareTask[]>>({});
   const [loading, setLoading] = useState(true);
+  
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newLoopTitle, setNewLoopTitle] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [deleteModalState, setDeleteModalState] = useState<{isOpen: boolean, id: string | null}>({isOpen: false, id: null});
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -57,6 +66,7 @@ export function CareLoopsPage() {
       setTasksByLoop(tasksMap);
     } catch (err) {
       console.error('Failed to load care loops:', err);
+      toast.error('Failed to load care loops');
     } finally {
       setLoading(false);
     }
@@ -66,20 +76,31 @@ export function CareLoopsPage() {
     try {
       const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
       const completedAt = newStatus === 'completed' ? new Date().toISOString() : undefined;
-      const updatedTask = await data.updateCareTask(taskId, { status: newStatus as any, completedAt });
       
+      // Optimistic update
       setTasksByLoop(prev => {
         const loopTasks = prev[loopId] || [];
-        const newLoopTasks = loopTasks.map(t => t.id === taskId ? updatedTask : t);
+        const newLoopTasks = loopTasks.map(t => t.id === taskId ? { ...t, status: newStatus as any, completedAt } : t);
         return { ...prev, [loopId]: newLoopTasks };
       });
+
+      await data.updateCareTask(taskId, { status: newStatus as any, completedAt });
+      if (newStatus === 'completed') toast.success('Task marked as complete');
     } catch (err) {
       console.error('Failed to update task:', err);
+      toast.error('Failed to update task');
+      loadData(); // Revert on failure
     }
   };
 
-  const handleCreateLoop = async () => {
-    if (!newLoopTitle.trim()) return;
+  const handleCreateLoop = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLoopTitle.trim()) {
+      toast.error('Please enter a journey title');
+      return;
+    }
+    
+    setIsSubmitting(true);
     try {
       const newLoop = await data.createCareLoop({
         profileId,
@@ -91,8 +112,27 @@ export function CareLoopsPage() {
       setTasksByLoop(prev => ({ ...prev, [newLoop.id]: [] }));
       setNewLoopTitle('');
       setIsCreateModalOpen(false);
+      toast.success('Care loop created successfully');
     } catch (err) {
       console.error('Failed to create care loop:', err);
+      toast.error('Failed to create care loop');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteModalState.id) return;
+    setIsDeleting(true);
+    try {
+      await data.deleteCareLoop(deleteModalState.id);
+      setLoops(prev => prev.filter(l => l.id !== deleteModalState.id));
+      toast.success('Care loop deleted successfully');
+      setDeleteModalState({ isOpen: false, id: null });
+    } catch (err) {
+      toast.error('Failed to delete care loop');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -151,11 +191,11 @@ export function CareLoopsPage() {
           const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
           return (
-            <Card key={loop.id} className="p-0 overflow-hidden shadow-sm hover:shadow-card transition-all duration-300">
+            <Card key={loop.id} className="p-0 overflow-hidden shadow-sm hover:shadow-card transition-all duration-300 relative group">
               {/* Card Header */}
               <div className="p-6 sm:p-8 border-b border-ivory-200 bg-white">
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                  <div>
+                  <div className="pr-12">
                     <div className="flex items-center gap-3 mb-2">
                       <h2 className="text-2xl font-heading font-bold text-navy-900">{loop.title}</h2>
                       <Badge variant={getStatusBadgeVariant(loop.status)} className="uppercase tracking-wider px-3 py-1 text-[10px]">
@@ -179,8 +219,17 @@ export function CareLoopsPage() {
                     </div>
                   </div>
 
+                  {/* Delete Button */}
+                  <button 
+                    className="absolute top-6 right-6 p-2 text-navy-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                    onClick={() => setDeleteModalState({ isOpen: true, id: loop.id })}
+                    aria-label="Delete care loop"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+
                   {/* Progress Ring / Info */}
-                  <div className="flex items-center gap-4 bg-ivory-50 px-5 py-3 rounded-2xl border border-ivory-200 shrink-0">
+                  <div className="flex items-center gap-4 bg-ivory-50 px-5 py-3 rounded-2xl border border-ivory-200 shrink-0 mt-4 md:mt-0">
                     <div className="flex flex-col items-end">
                       <span className="text-sm font-medium text-navy-900">{completedTasks} of {totalTasks}</span>
                       <span className="text-xs text-navy-500 uppercase tracking-wider font-semibold">Tasks Done</span>
@@ -224,20 +273,21 @@ export function CareLoopsPage() {
                         const isCompleted = task.status === 'completed';
                         
                         return (
-                          <div key={task.id} className="flex gap-4 sm:gap-6 group">
+                          <div key={task.id} className="flex gap-4 sm:gap-6 group/task">
                             <button 
                               onClick={() => toggleTask(task.id, task.status, loop.id)}
                               className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0 outline-none transition-all duration-200 shadow-sm
                                 ${isCompleted 
                                   ? 'bg-sage-50 text-sage-500 border border-sage-200 ring-4 ring-white' 
-                                  : 'bg-white text-navy-500 border-2 border-ivory-200 hover:border-sage-300 hover:bg-sage-50 ring-4 ring-white group-hover:scale-105'
+                                  : 'bg-white text-navy-500 border-2 border-ivory-200 hover:border-sage-300 hover:bg-sage-50 ring-4 ring-white group-hover/task:scale-105'
                                 }`}
+                              aria-label={isCompleted ? "Mark task incomplete" : "Mark task complete"}
                             >
                               {getTaskIcon(task.taskType, isCompleted)}
                             </button>
                             
                             <div className="flex-1 pt-1 sm:pt-2">
-                              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 bg-white p-4 rounded-xl border border-ivory-100 shadow-sm group-hover:shadow-md transition-shadow">
+                              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 bg-white p-4 rounded-xl border border-ivory-100 shadow-sm group-hover/task:shadow-md transition-shadow">
                                 <div>
                                   <h4 className={`text-base sm:text-lg font-heading font-semibold ${isCompleted ? 'text-navy-400 line-through' : 'text-navy-900'}`}>
                                     {task.title}
@@ -279,15 +329,15 @@ export function CareLoopsPage() {
           );
         })}
 
-        {loops.length === 0 && !loading && (
-          <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-ivory-300">
-            <ActivitySquare className="w-16 h-16 text-sage-200 mx-auto mb-4" />
-            <h3 className="text-xl font-heading font-semibold text-navy-900 mb-2">No active Care Loops</h3>
-            <p className="text-navy-500 mb-6 max-w-md mx-auto">
-              Start a new health journey to track tasks, medications, and follow-ups all in one place.
-            </p>
-            <Button onClick={() => setIsCreateModalOpen(true)}>Create First Loop</Button>
-          </div>
+        {loops.length === 0 && (
+          <EmptyState 
+            icon={<ActivitySquare className="w-8 h-8" />}
+            title="No care loops yet"
+            description="Start a new health journey to track tasks, medications, and follow-ups all in one place."
+            actionLabel="Create First Loop"
+            actionIcon={<Plus className="w-4 h-4" />}
+            onAction={() => setIsCreateModalOpen(true)}
+          />
         )}
       </div>
 
@@ -297,24 +347,35 @@ export function CareLoopsPage() {
         title="Create Care Loop"
         size="md"
       >
-        <div className="space-y-6 py-4">
+        <form onSubmit={handleCreateLoop} className="space-y-6 py-4">
           <Input
             label="Journey Title"
             placeholder="e.g. Post-Surgery Recovery"
             value={newLoopTitle}
             onChange={(e) => setNewLoopTitle(e.target.value)}
+            disabled={isSubmitting}
             autoFocus
           />
           <div className="flex justify-end gap-3 pt-4 border-t border-ivory-100 mt-8">
-            <Button variant="ghost" onClick={() => setIsCreateModalOpen(false)}>
+            <Button type="button" variant="ghost" onClick={() => setIsCreateModalOpen(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button onClick={handleCreateLoop} disabled={!newLoopTitle.trim()}>
-              Create Loop
+            <Button type="submit" disabled={isSubmitting || !newLoopTitle.trim()}>
+              {isSubmitting ? 'Creating...' : 'Create Loop'}
             </Button>
           </div>
-        </div>
+        </form>
       </Modal>
+
+      <ConfirmModal
+        isOpen={deleteModalState.isOpen}
+        onClose={() => setDeleteModalState({ isOpen: false, id: null })}
+        onConfirm={handleDelete}
+        title="Delete Care Loop"
+        message="Are you sure you want to delete this care loop? All associated tasks will also be removed."
+        confirmText="Delete"
+        isProcessing={isDeleting}
+      />
     </div>
   );
 }
