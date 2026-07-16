@@ -34,13 +34,21 @@ export interface DataRepository {
   getActiveMedications(profileId: string): Promise<Medication[]>;
   getMedicationLogs(medicationId: string): Promise<MedicationLog[]>;
   logMedication(log: Omit<MedicationLog, 'id'>): Promise<MedicationLog>;
+  addMedication(medication: Omit<Medication, 'id' | 'createdAt'>): Promise<Medication>;
+  updateMedication(id: string, updates: Partial<Medication>): Promise<Medication>;
+  deleteMedication(id: string): Promise<void>;
   
   // Vitals
   getVitalsByProfile(profileId: string, type?: string): Promise<Vital[]>;
   addVital(vital: Omit<Vital, 'id'>): Promise<Vital>;
+  updateVital(id: string, updates: Partial<Vital>): Promise<Vital>;
+  deleteVital(id: string): Promise<void>;
   
   // Medical Records
   getRecordsByProfile(profileId: string): Promise<MedicalRecord[]>;
+  addRecord(record: Omit<MedicalRecord, 'id' | 'createdAt'>): Promise<MedicalRecord>;
+  updateRecord(id: string, updates: Partial<MedicalRecord>): Promise<MedicalRecord>;
+  deleteRecord(id: string): Promise<void>;
   
   // Timeline
   getTimelineEvents(profileId: string, filter?: TimelineEventType): Promise<TimelineEvent[]>;
@@ -53,10 +61,14 @@ export interface DataRepository {
   getCareLoopsByProfile(profileId: string): Promise<CareLoop[]>;
   getCareTasksByLoop(careLoopId: string): Promise<CareTask[]>;
   updateCareTask(taskId: string, updates: Partial<CareTask>): Promise<CareTask>;
+  createCareLoop(loop: Omit<CareLoop, 'id' | 'createdAt'>, initialTasks: Omit<CareTask, 'id' | 'careLoopId'>[]): Promise<CareLoop>;
+  updateCareLoop(id: string, updates: Partial<CareLoop>): Promise<CareLoop>;
   
   // Symptoms
   getSymptomsByProfile(profileId: string): Promise<SymptomCheckin[]>;
   addSymptom(symptom: Omit<SymptomCheckin, 'id'>): Promise<SymptomCheckin>;
+  updateSymptom(id: string, updates: Partial<SymptomCheckin>): Promise<SymptomCheckin>;
+  deleteSymptom(id: string): Promise<void>;
   
   // Sharing
   getShareGrants(profileId: string): Promise<ShareGrant[]>;

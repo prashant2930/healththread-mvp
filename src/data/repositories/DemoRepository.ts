@@ -89,6 +89,23 @@ export class DemoRepository implements DataRepository {
     return newLog;
   }
 
+  async addMedication(medication: Omit<Medication, 'id' | 'createdAt'>): Promise<Medication> {
+    const newMed = { ...medication, id: `m-${Date.now()}`, createdAt: new Date().toISOString() } as Medication;
+    this.medications.push(newMed);
+    return newMed;
+  }
+
+  async updateMedication(id: string, updates: Partial<Medication>): Promise<Medication> {
+    const idx = this.medications.findIndex((m) => m.id === id);
+    if (idx === -1) throw new Error('Medication not found');
+    this.medications[idx] = { ...this.medications[idx], ...updates };
+    return this.medications[idx];
+  }
+
+  async deleteMedication(id: string): Promise<void> {
+    this.medications = this.medications.filter((m) => m.id !== id);
+  }
+
   async getVitalsByProfile(profileId: string, type?: string): Promise<Vital[]> {
     return this.vitals
       .filter((v) => v.profileId === profileId && (!type || v.type === type))
@@ -101,8 +118,36 @@ export class DemoRepository implements DataRepository {
     return newVital;
   }
 
+  async updateVital(id: string, updates: Partial<Vital>): Promise<Vital> {
+    const idx = this.vitals.findIndex((v) => v.id === id);
+    if (idx === -1) throw new Error('Vital not found');
+    this.vitals[idx] = { ...this.vitals[idx], ...updates };
+    return this.vitals[idx];
+  }
+
+  async deleteVital(id: string): Promise<void> {
+    this.vitals = this.vitals.filter((v) => v.id !== id);
+  }
+
   async getRecordsByProfile(profileId: string): Promise<MedicalRecord[]> {
     return this.records.filter((r) => r.profileId === profileId);
+  }
+
+  async addRecord(record: Omit<MedicalRecord, 'id' | 'createdAt'>): Promise<MedicalRecord> {
+    const newRecord = { ...record, id: `rec-${Date.now()}`, createdAt: new Date().toISOString() } as MedicalRecord;
+    this.records.push(newRecord);
+    return newRecord;
+  }
+
+  async updateRecord(id: string, updates: Partial<MedicalRecord>): Promise<MedicalRecord> {
+    const idx = this.records.findIndex((r) => r.id === id);
+    if (idx === -1) throw new Error('Record not found');
+    this.records[idx] = { ...this.records[idx], ...updates };
+    return this.records[idx];
+  }
+
+  async deleteRecord(id: string): Promise<void> {
+    this.records = this.records.filter((r) => r.id !== id);
   }
 
   async getTimelineEvents(
@@ -132,6 +177,24 @@ export class DemoRepository implements DataRepository {
     return this.careLoops.filter((c) => c.profileId === profileId);
   }
 
+  async createCareLoop(loop: Omit<CareLoop, 'id' | 'createdAt'>, initialTasks: Omit<CareTask, 'id' | 'careLoopId'>[]): Promise<CareLoop> {
+    const newLoop = { ...loop, id: `cl-${Date.now()}`, createdAt: new Date().toISOString() } as CareLoop;
+    this.careLoops.push(newLoop);
+    
+    for (const task of initialTasks) {
+      this.careTasks.push({ ...task, id: `ct-${Date.now()}-${Math.random()}`, careLoopId: newLoop.id } as CareTask);
+    }
+    
+    return newLoop;
+  }
+
+  async updateCareLoop(id: string, updates: Partial<CareLoop>): Promise<CareLoop> {
+    const idx = this.careLoops.findIndex((l) => l.id === id);
+    if (idx === -1) throw new Error('CareLoop not found');
+    this.careLoops[idx] = { ...this.careLoops[idx], ...updates };
+    return this.careLoops[idx];
+  }
+
   async getCareTasksByLoop(careLoopId: string): Promise<CareTask[]> {
     return this.careTasks.filter((t) => t.careLoopId === careLoopId);
   }
@@ -143,6 +206,8 @@ export class DemoRepository implements DataRepository {
     return this.careTasks[idx];
   }
 
+
+
   async getSymptomsByProfile(profileId: string): Promise<SymptomCheckin[]> {
     return this.symptoms.filter((s) => s.profileId === profileId);
   }
@@ -151,6 +216,17 @@ export class DemoRepository implements DataRepository {
     const newSymptom = { ...symptom, id: `sym-${Date.now()}` } as SymptomCheckin;
     this.symptoms.push(newSymptom);
     return newSymptom;
+  }
+
+  async updateSymptom(id: string, updates: Partial<SymptomCheckin>): Promise<SymptomCheckin> {
+    const idx = this.symptoms.findIndex((s) => s.id === id);
+    if (idx === -1) throw new Error('Symptom not found');
+    this.symptoms[idx] = { ...this.symptoms[idx], ...updates };
+    return this.symptoms[idx];
+  }
+
+  async deleteSymptom(id: string): Promise<void> {
+    this.symptoms = this.symptoms.filter((s) => s.id !== id);
   }
 
   async getShareGrants(profileId: string): Promise<ShareGrant[]> {

@@ -16,6 +16,7 @@ import { ProfileDetailPage } from './pages/ProfileDetailPage';
 import { TimelinePage } from './pages/TimelinePage';
 import { MedicationsPage } from './pages/MedicationsPage';
 import { VitalsPage } from './pages/VitalsPage';
+import { SymptomsPage } from './pages/SymptomsPage';
 import { CareLoopsPage } from './pages/CareLoopsPage';
 import { RecordsPage } from './pages/RecordsPage';
 import { AssistantPage } from './pages/AssistantPage';
@@ -41,6 +42,7 @@ function App() {
             <Route path="timeline" element={<TimelinePage />} />
             <Route path="medications" element={<MedicationsPage />} />
             <Route path="vitals" element={<VitalsPage />} />
+            <Route path="symptoms" element={<SymptomsPage />} />
             <Route path="care-loops" element={<CareLoopsPage />} />
             <Route path="records" element={<RecordsPage />} />
             <Route path="assistant" element={<AssistantPage />} />

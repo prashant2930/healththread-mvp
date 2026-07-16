@@ -183,8 +183,8 @@ export const demoMedications: Medication[] = [
 ];
 
 export const demoMedicationLogs: MedicationLog[] = [];
-// Generate some logs for the last 5 days
-[0, 1, 2, 3, 4].forEach(dayOffset => {
+// Generate some logs for the last 14 days for adherence history
+Array.from({ length: 14 }).forEach((_, dayOffset) => {
   const date = subDays(new Date(), dayOffset);
   const dateStr = formatISO(date, { representation: 'date' });
   
@@ -240,11 +240,27 @@ export const demoMedicationLogs: MedicationLog[] = [];
 });
 
 export const demoVitals: Vital[] = [
-  { id: 'v-1', profileId: 'p-2', type: 'blood_pressure', value: 135, value2: 85, unit: 'mmHg', recordedAt: subDays(new Date(), 10).toISOString() },
-  { id: 'v-2', profileId: 'p-2', type: 'blood_pressure', value: 130, value2: 82, unit: 'mmHg', recordedAt: subDays(new Date(), 5).toISOString() },
-  { id: 'v-3', profileId: 'p-2', type: 'blood_pressure', value: 128, value2: 80, unit: 'mmHg', recordedAt: subDays(new Date(), 1).toISOString() },
-  { id: 'v-4', profileId: 'p-2', type: 'blood_glucose', value: 142, unit: 'mg/dL', recordedAt: subDays(new Date(), 2).toISOString(), notes: 'Fasting' },
-  { id: 'v-5', profileId: 'p-3', type: 'weight', value: 65, unit: 'kg', recordedAt: subDays(new Date(), 15).toISOString() },
+  // 15 days of BP readings to show trends for Rajesh Mehta (p-2)
+  ...Array.from({ length: 15 }).map((_, i) => ({
+    id: `v-bp-${i}`,
+    profileId: 'p-2',
+    type: 'blood_pressure' as const,
+    value: Math.round(130 + Math.random() * 15), // systolic 130-145
+    value2: Math.round(80 + Math.random() * 10), // diastolic 80-90
+    unit: 'mmHg',
+    recordedAt: subDays(new Date(), 15 - i).toISOString()
+  })),
+  // 15 days of Glucose readings for Rajesh Mehta (p-2)
+  ...Array.from({ length: 15 }).map((_, i) => ({
+    id: `v-bg-${i}`,
+    profileId: 'p-2',
+    type: 'blood_glucose' as const,
+    value: Math.round(110 + Math.random() * 40), // 110-150 mg/dL
+    unit: 'mg/dL',
+    recordedAt: subDays(new Date(), 15 - i).toISOString(),
+    notes: 'Fasting'
+  })),
+  { id: 'v-w1', profileId: 'p-3', type: 'weight' as const, value: 65, unit: 'kg', recordedAt: subDays(new Date(), 15).toISOString() },
 ];
 
 export const demoConsultations: Consultation[] = [
@@ -315,6 +331,36 @@ export const demoMedicalRecords: MedicalRecord[] = [
     fileType: 'application/pdf',
     createdBy: 'u-1',
     createdAt: subDays(new Date(), 22).toISOString(),
+  },
+  {
+    id: 'rec-3',
+    profileId: 'p-2',
+    title: 'Knee MRI Scan',
+    recordType: 'imaging',
+    recordDate: subDays(new Date(), 45).toISOString(),
+    fileType: 'image/jpeg',
+    createdBy: 'u-1',
+    createdAt: subDays(new Date(), 44).toISOString(),
+  },
+  {
+    id: 'rec-4',
+    profileId: 'p-2',
+    title: 'Cardiology Prescription',
+    recordType: 'prescription',
+    recordDate: subDays(new Date(), 30).toISOString(),
+    fileType: 'application/pdf',
+    createdBy: 'u-1',
+    createdAt: subDays(new Date(), 30).toISOString(),
+  },
+  {
+    id: 'rec-5',
+    profileId: 'p-3',
+    title: 'Complete Blood Count (CBC)',
+    recordType: 'lab_report',
+    recordDate: subDays(new Date(), 10).toISOString(),
+    fileType: 'application/pdf',
+    createdBy: 'u-1',
+    createdAt: subDays(new Date(), 10).toISOString(),
   }
 ];
 
@@ -342,34 +388,98 @@ export const demoCareLoops: CareLoop[] = [
 ];
 
 export const demoCareTasks: CareTask[] = [
+  // Hypertension Management Loop Tasks
   {
     id: 'ct-1',
     careLoopId: 'cl-1',
     profileId: 'p-2',
-    title: 'Record Blood Pressure weekly',
+    title: 'Record Blood Pressure',
     taskType: 'vital',
     status: 'pending',
     dueDate: addDays(new Date(), 2).toISOString(),
   },
   {
     id: 'ct-2',
+    careLoopId: 'cl-1',
+    profileId: 'p-2',
+    title: 'Low Sodium Diet Plan check-in',
+    taskType: 'custom',
+    status: 'completed',
+    dueDate: subDays(new Date(), 5).toISOString(),
+  },
+  {
+    id: 'ct-3',
+    careLoopId: 'cl-1',
+    profileId: 'p-2',
+    title: 'Cardiologist Follow-up Appointment',
+    taskType: 'follow_up',
+    status: 'pending',
+    dueDate: addDays(new Date(), 25).toISOString(),
+  },
+  {
+    id: 'ct-4',
+    careLoopId: 'cl-1',
+    profileId: 'p-2',
+    title: 'Take Amlodipine Refill',
+    taskType: 'medication',
+    status: 'pending',
+    dueDate: addDays(new Date(), 1).toISOString(),
+  },
+  
+  // Thyroid Follow-up Loop Tasks
+  {
+    id: 'ct-5',
     careLoopId: 'cl-2',
     profileId: 'p-3',
     title: 'Get Vitamin D levels checked',
     taskType: 'upload_report',
     status: 'pending',
     dueDate: addDays(new Date(), 5).toISOString(),
+  },
+  {
+    id: 'ct-6',
+    careLoopId: 'cl-2',
+    profileId: 'p-3',
+    title: 'Endocrinologist Follow-up Appointment',
+    taskType: 'follow_up',
+    status: 'pending',
+    dueDate: addDays(new Date(), 7).toISOString(),
+  },
+  {
+    id: 'ct-7',
+    careLoopId: 'cl-2',
+    profileId: 'p-3',
+    title: 'Report Fatigue Levels',
+    taskType: 'custom',
+    status: 'completed',
+    dueDate: subDays(new Date(), 2).toISOString(),
+  },
+  {
+    id: 'ct-8',
+    careLoopId: 'cl-2',
+    profileId: 'p-3',
+    title: 'Log Weight',
+    taskType: 'vital',
+    status: 'pending',
+    dueDate: addDays(new Date(), 1).toISOString(),
   }
 ];
 
 export const demoSymptomCheckins: SymptomCheckin[] = [
-  {
-    id: 'sym-1',
+  ...Array.from({ length: 6 }).map((_, i) => ({
+    id: `sym-f-${i}`,
     profileId: 'p-3',
     symptomName: 'Fatigue',
-    severity: 6,
-    recordedAt: subDays(new Date(), 5).toISOString(),
-  }
+    severity: Math.max(1, 8 - i), // decreasing severity over time
+    recordedAt: subDays(new Date(), 15 - i * 2).toISOString(),
+  })),
+  ...Array.from({ length: 5 }).map((_, i) => ({
+    id: `sym-k-${i}`,
+    profileId: 'p-2',
+    symptomName: 'Knee Pain',
+    severity: Math.round(3 + Math.random() * 4), // fluctuating severity
+    recordedAt: subDays(new Date(), 10 - i * 2).toISOString(),
+  }))
 ];
 
 export const demoShareGrants: ShareGrant[] = [

@@ -5,13 +5,16 @@ import {
   Clock,
   Pill,
   Activity,
+  HeartPulse,
   RefreshCw,
   FolderOpen,
   MessageCircle,
   Shield,
   Settings,
   LogOut,
-  X
+  X,
+  FileText,
+  Share2
 } from 'lucide-react';
 import { Logo } from '../common/Logo';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -22,9 +25,12 @@ export const NAVIGATION_ITEMS = [
   { name: 'Timeline', path: '/app/timeline', icon: Clock },
   { name: 'Medications', path: '/app/medications', icon: Pill },
   { name: 'Vitals', path: '/app/vitals', icon: Activity },
+  { name: 'Symptoms', path: '/app/symptoms', icon: HeartPulse },
   { name: 'Care Loops', path: '/app/care-loops', icon: RefreshCw },
   { name: 'Records', path: '/app/records', icon: FolderOpen },
   { name: 'Assistant', path: '/app/assistant', icon: MessageCircle },
+  { name: 'Doctor Brief', path: '/app/doctor-brief', icon: FileText },
+  { name: 'Share Profile', path: '/app/share', icon: Share2 },
   { name: 'Access History', path: '/app/access-history', icon: Shield },
 ];
 

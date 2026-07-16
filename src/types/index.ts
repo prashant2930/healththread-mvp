@@ -169,7 +169,7 @@ export interface SharePermission {
 export interface AuditEvent {
   id: string;
   profileId: string;
-  eventType: 'share_created' | 'share_opened' | 'record_viewed' | 'doctor_brief_viewed' | 'share_revoked' | 'share_expired';
+  eventType: 'share_created' | 'share_opened' | 'record_viewed' | 'doctor_brief_viewed' | 'share_revoked' | 'share_expired' | 'appointment_requested';
   shareId?: string;
   timestamp: string;
   metadata?: Record<string, unknown>;
